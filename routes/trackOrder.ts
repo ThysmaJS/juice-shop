@@ -11,15 +11,30 @@ import { challenges } from '../data/datacache'
 
 export function trackOrder () {
   return (req: Request, res: Response) => {
-    // Truncate id to avoid unintentional RCE
-    const id = !utils.isChallengeEnabled(challenges.reflectedXssChallenge) ? String(req.params.id).replace(/[^\w-]+/g, '') : utils.trunc(req.params.id, 60)
+    // Security fix: Validate and sanitize order ID
+    const id = req.params.id
+    
+    if (!id || typeof id !== 'string') {
+      return res.status(400).json({ error: 'Invalid order ID' })
+    }
+    
+    // Validate order ID format and sanitize
+    let orderId: string
+    if (/^[A-Za-z0-9_-]+$/.test(id)) {
+      // Only allow alphanumeric characters, underscore and dash
+      orderId = id.slice(0, 60) // Limit length
+    } else {
+      return res.status(400).json({ error: 'Invalid order ID format' })
+    }
 
-    challengeUtils.solveIf(challenges.reflectedXssChallenge, () => { return utils.contains(id, '<iframe src="javascript:alert(`xss`)">') })
-    db.ordersCollection.find({ $where: `this.orderId === '${id}'` }).then((order: any) => {
+    challengeUtils.solveIf(challenges.reflectedXssChallenge, () => { return utils.contains(orderId, '<iframe src="javascript:alert(`xss`)">') })
+    
+    // Security fix: Use secure query instead of $where with code execution
+    db.ordersCollection.find({ orderId: orderId }).then((order: any) => {
       const result = utils.queryResultToJson(order)
       challengeUtils.solveIf(challenges.noSqlOrdersChallenge, () => { return result.data.length > 1 })
       if (result.data[0] === undefined) {
-        result.data[0] = { orderId: id }
+        result.data[0] = { orderId: orderId }
       }
       res.json(result)
     }, () => {

@@ -27,13 +27,33 @@ global.sleep = (time: number) => {
 
 export function showProductReviews () {
   return (req: Request, res: Response, next: NextFunction) => {
-    // Truncate id to avoid unintentional RCE
-    const id = !utils.isChallengeEnabled(challenges.noSqlCommandChallenge) ? Number(req.params.id) : utils.trunc(req.params.id, 40)
+    // Security fix: Validate and sanitize product ID
+    let id = req.params.id
+    
+    if (!id || typeof id !== 'string') {
+      return res.status(400).json({ error: 'Invalid product ID' })
+    }
+    
+    // Validate ID format - should be numeric or MongoDB ObjectId
+    let productId: any
+    if (/^\d+$/.test(id)) {
+      // Numeric ID
+      productId = parseInt(id, 10)
+      if (isNaN(productId) || productId <= 0) {
+        return res.status(400).json({ error: 'Invalid numeric product ID' })
+      }
+    } else if (/^[a-fA-F0-9]{24}$/.test(id)) {
+      // MongoDB ObjectId format
+      productId = id
+    } else {
+      return res.status(400).json({ error: 'Invalid product ID format' })
+    }
 
     // Measure how long the query takes, to check if there was a nosql dos attack
     const t0 = new Date().getTime()
 
-    db.reviewsCollection.find({ $where: 'this.product == ' + id }).then((reviews: Review[]) => {
+    // Security fix: Use secure query instead of $where with code execution
+    db.reviewsCollection.find({ product: productId }).then((reviews: Review[]) => {
       const t1 = new Date().getTime()
       challengeUtils.solveIf(challenges.noSqlCommandChallenge, () => { return (t1 - t0) > 2000 })
       const user = security.authenticatedUsers.from(req)

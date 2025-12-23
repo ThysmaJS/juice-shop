@@ -13,11 +13,33 @@ import * as db from '../data/mongodb'
 // vuln-code-snippet start noSqlReviewsChallenge forgedReviewChallenge
 export function updateProductReviews () {
   return (req: Request, res: Response, next: NextFunction) => {
-    const user = security.authenticatedUsers.from(req) // vuln-code-snippet vuln-line forgedReviewChallenge
-    db.reviewsCollection.update( // vuln-code-snippet neutral-line forgedReviewChallenge
-      { _id: req.body.id }, // vuln-code-snippet vuln-line noSqlReviewsChallenge forgedReviewChallenge
-      { $set: { message: req.body.message } },
-      { multi: true } // vuln-code-snippet vuln-line noSqlReviewsChallenge
+    const user = security.authenticatedUsers.from(req)
+    
+    // Security fix: Validate and sanitize input data
+    const reviewId = req.body.id
+    const newMessage = req.body.message
+    
+    if (!reviewId || typeof reviewId !== 'string') {
+      return res.status(400).json({ error: 'Invalid review ID' })
+    }
+    
+    if (!newMessage || typeof newMessage !== 'string') {
+      return res.status(400).json({ error: 'Invalid message' })
+    }
+    
+    // Validate review ID format (MongoDB ObjectId)
+    if (!/^[a-fA-F0-9]{24}$/.test(reviewId)) {
+      return res.status(400).json({ error: 'Invalid review ID format' })
+    }
+    
+    // Sanitize message (limit length and escape potential injection)
+    const sanitizedMessage = newMessage.slice(0, 500) // Limit message length
+    
+    // Security fix: Use precise query with single document update
+    db.reviewsCollection.update(
+      { _id: reviewId }, // Single, validated ID
+      { $set: { message: sanitizedMessage } },
+      { multi: false } // Security fix: Only update single document
     ).then(
       (result: { modified: number, original: Array<{ author: any }> }) => {
         challengeUtils.solveIf(challenges.noSqlReviewsChallenge, () => { return result.modified > 1 }) // vuln-code-snippet hide-line
