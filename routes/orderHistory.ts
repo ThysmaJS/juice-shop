@@ -14,13 +14,21 @@ export function orderHistory () {
     if (loggedInUser?.data?.email && loggedInUser.data.id) {
       const email = loggedInUser.data.email
       
-      // Security fix: Validate email format before using in query
+      // Security fix: Enhanced email validation and sanitization
       if (typeof email !== 'string' || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         return res.status(400).json({ error: 'Invalid email format' })
       }
       
-      const updatedEmail = email.replace(/[aeiou]/gi, '*')
-      const order = await ordersCollection.find({ email: updatedEmail })
+      // Additional security: Sanitize email to prevent injection
+      const sanitizedEmail = email.toLowerCase().trim()
+      
+      // Apply the vowel replacement in a secure manner
+      const updatedEmail = sanitizedEmail.replace(/[aeiou]/gi, '*')
+      
+      // Use parameterized query equivalent for MongoDB
+      const order = await ordersCollection.find({ 
+        email: { $eq: updatedEmail } 
+      })
       res.status(200).json({ status: 'success', data: order })
     } else {
       next(new Error('Blocked illegal activity by ' + req.socket.remoteAddress))
