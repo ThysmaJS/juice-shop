@@ -150,11 +150,34 @@ export function placeOrder () {
 
           challengeUtils.solveIf(challenges.negativeOrderChallenge, () => { return totalPrice < 0 })
 
+          // Security fix: Validate order details before database insertion
+          let paymentId = null
+          let addressId = null
+          
+          if (req.body.orderDetails) {
+            // Validate payment ID
+            if (req.body.orderDetails.paymentId && typeof req.body.orderDetails.paymentId === 'string') {
+              paymentId = req.body.orderDetails.paymentId.trim()
+              // Only allow specific payment methods
+              if (!['wallet', 'card', 'paypal'].includes(paymentId)) {
+                paymentId = null
+              }
+            }
+            
+            // Validate address ID
+            if (req.body.orderDetails.addressId) {
+              const addressIdNum = parseInt(req.body.orderDetails.addressId, 10)
+              if (!isNaN(addressIdNum) && addressIdNum > 0) {
+                addressId = addressIdNum
+              }
+            }
+          }
+
           if (req.body.UserId) {
             // Security fix: Validate user ID
             const userId = parseInt(req.body.UserId, 10)
             if (!isNaN(userId) && userId > 0) {
-              if (req.body.orderDetails && req.body.orderDetails.paymentId === 'wallet') {
+              if (paymentId === 'wallet') {
                 const wallet = await WalletModel.findOne({ where: { UserId: userId } })
                 if ((wallet != null) && wallet.balance >= totalPrice) {
                   WalletModel.decrement({ balance: totalPrice }, { where: { UserId: userId } }).catch((error: unknown) => {
@@ -172,8 +195,8 @@ export function placeOrder () {
 
           db.ordersCollection.insert({
             promotionalAmount: discountAmount,
-            paymentId: req.body.orderDetails ? req.body.orderDetails.paymentId : null,
-            addressId: req.body.orderDetails ? req.body.orderDetails.addressId : null,
+            paymentId: paymentId,
+            addressId: addressId,
             orderId,
             delivered: false,
             email: (email ? email.replace(/[aeiou]/gi, '*') : undefined),
@@ -201,14 +224,35 @@ function calculateApplicableDiscount (basket: BasketModel, req: Request) {
     console.log(discount)
     return discount
   } else if (req.body.couponData) {
-    const couponData = Buffer.from(req.body.couponData, 'base64').toString().split('-')
-    const couponCode = couponData[0]
-    const couponDate = Number(couponData[1])
-    const campaign = campaigns[couponCode as keyof typeof campaigns]
+    // Security fix: Validate coupon data before processing
+    if (typeof req.body.couponData !== 'string' || req.body.couponData.length > 1000) {
+      return 0
+    }
+    
+    try {
+      const couponData = Buffer.from(req.body.couponData, 'base64').toString().split('-')
+      const couponCode = couponData[0]
+      const couponDate = Number(couponData[1])
+      
+      // Validate coupon code format
+      if (!couponCode || typeof couponCode !== 'string' || !/^[A-Z0-9]+$/.test(couponCode)) {
+        return 0
+      }
+      
+      // Validate coupon date
+      if (isNaN(couponDate) || couponDate <= 0) {
+        return 0
+      }
+      
+      const campaign = campaigns[couponCode as keyof typeof campaigns]
 
-    if (campaign && couponDate == campaign.validOn) { // eslint-disable-line eqeqeq
-      challengeUtils.solveIf(challenges.manipulateClockChallenge, () => { return campaign.validOn < new Date().getTime() })
-      return campaign.discount
+      if (campaign && couponDate == campaign.validOn) { // eslint-disable-line eqeqeq
+        challengeUtils.solveIf(challenges.manipulateClockChallenge, () => { return campaign.validOn < new Date().getTime() })
+        return campaign.discount
+      }
+    } catch (error) {
+      // Invalid base64 or malformed data
+      return 0
     }
   }
   return 0
