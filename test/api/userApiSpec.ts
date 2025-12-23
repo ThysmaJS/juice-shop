@@ -9,6 +9,7 @@ import * as frisby from 'frisby'
 import { challenges } from '../../data/datacache'
 import * as security from '../../lib/insecurity'
 import * as utils from '../../lib/utils'
+import { ServerJWTTestHelper } from '../server/helpers/jwt-test-helper'
 
 const Joi = frisby.Joi
 
@@ -299,7 +300,29 @@ describe('/rest/user/whoami', () => {
   })
 
   it('GET who-am-i request returns nothing on expired auth token', () => {
-    return frisby.get(`${REST_URL}/user/whoami`, { headers: { Authorization: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdGF0dXMiOiJzdWNjZXNzIiwiZGF0YSI6eyJpZCI6MSwidXNlcm5hbWUiOiIiLCJlbWFpbCI6ImFkbWluQGp1aWNlLXNoLm9wIiwicGFzc3dvcmQiOiIwMTkyMDIzYTdiYmQ3MzI1MDUxNmYwNjlkZjE4YjUwMCIsInJvbGUiOiJhZG1pbiIsImxhc3RMb2dpbklwIjoiMC4wLjAuMCIsInByb2ZpbGVJbWFnZSI6ImRlZmF1bHQuc3ZnIiwidG90cFNlY3JldCI6IiIsImlzQWN0aXZlIjp0cnVlLCJjcmVhdGVkQXQiOiIyMDE5LTA4LTE5IDE1OjU2OjE1LjYyOSArMDA6MDAiLCJ1cGRhdGVkQXQiOiIyMDE5LTA4LTE5IDE1OjU2OjE1LjYyOSArMDA6MDAiLCJkZWxldGVkQXQiOm51bGx9LCJpYXQiOjE1NjYyMzAyMjQsImV4cCI6MTU2NjI0ODIyNH0.FL0kkcInY5sDMGKeLHfEOYDTQd3BjR6_mK7Tcm_RH6iCLotTSRRoRxHpLkbtIQKqBFIt14J4BpLapkzG7ppRWcEley5nego-4iFOmXQvCBz5ISS3HdtM0saJnOe0agyVUen3huFp4F2UCth_y2ScjMn_4AgW66cz8NSFPRVpC8g' } })
+    // Create an expired token for testing (exp in the past)
+    const expiredTokenPayload = {
+      status: 'success',
+      data: {
+        id: 1,
+        username: '',
+        email: 'admin@juice-sh.op',
+        password: '0192023a7bbd73250516f069df18b500',
+        role: 'admin',
+        lastLoginIp: '0.0.0.0',
+        profileImage: 'default.svg',
+        totpSecret: '',
+        isActive: true,
+        createdAt: '2019-08-19 15:56:15.629 +00:00',
+        updatedAt: '2019-08-19 15:56:15.629 +00:00',
+        deletedAt: null
+      },
+      iat: Math.floor(Date.now() / 1000) - 3600, // 1 hour ago
+      exp: Math.floor(Date.now() / 1000) - 1800   // 30 minutes ago (expired)
+    }
+    const expiredToken = ServerJWTTestHelper.createMockJWT(expiredTokenPayload)
+    
+    return frisby.get(`${REST_URL}/user/whoami`, { headers: { Authorization: expiredToken } })
       .expect('status', 200)
       .expect('header', 'content-type', /application\/json/)
       .expect('json', {

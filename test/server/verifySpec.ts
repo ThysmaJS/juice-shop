@@ -14,6 +14,7 @@ import * as security from '../../lib/insecurity'
 import { type UserModel } from 'models/user'
 import * as utils from '../../lib/utils'
 import * as verify from '../../routes/verify'
+import { ServerJWTTestHelper } from './helpers/jwt-test-helper'
 const expect = chai.expect
 
 chai.use(sinonChai)
@@ -258,9 +259,10 @@ describe('verify', () => {
     it('"jwtUnsignedChallenge" is solved when forged unsigned token has email jwtn3d@juice-sh.op in the payload', () => {
       /*
       Header: { "alg": "none", "typ": "JWT" }
-      Payload: { "data": { "email": "jwtn3d@juice-sh.op" }, "iat": 1508639612, "exp": 9999999999 }
+      Payload: { "data": { "email": "jwtn3d@juice-sh.op" }, "iat": timestamp, "exp": timestamp }
        */
-      req.headers = { authorization: 'Bearer eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJkYXRhIjp7ImVtYWlsIjoiand0bjNkQGp1aWNlLXNoLm9wIn0sImlhdCI6MTUwODYzOTYxMiwiZXhwIjo5OTk5OTk5OTk5fQ.' }
+      const mockToken = ServerJWTTestHelper.createUnsignedJWT('jwtn3d@juice-sh.op')
+      req.headers = { authorization: `Bearer ${mockToken}` }
 
       verify.jwtChallenges()(req, res, next)
 
@@ -270,9 +272,10 @@ describe('verify', () => {
     it('"jwtUnsignedChallenge" is solved when forged unsigned token has string "jwtn3d@" in the payload', () => {
       /*
       Header: { "alg": "none", "typ": "JWT" }
-      Payload: { "data": { "email": "jwtn3d@" }, "iat": 1508639612, "exp": 9999999999 }
+      Payload: { "data": { "email": "jwtn3d@" }, "iat": timestamp, "exp": timestamp }
        */
-      req.headers = { authorization: 'Bearer eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJkYXRhIjp7ImVtYWlsIjoiand0bjNkQCJ9LCJpYXQiOjE1MDg2Mzk2MTIsImV4cCI6OTk5OTk5OTk5OX0.' }
+      const mockToken = ServerJWTTestHelper.createUnsignedJWT('jwtn3d@')
+      req.headers = { authorization: `Bearer ${mockToken}` }
 
       verify.jwtChallenges()(req, res, next)
 
@@ -292,9 +295,10 @@ describe('verify', () => {
       it('"jwtForgedChallenge" is solved when forged token HMAC-signed with public RSA-key has email rsa_lord@juice-sh.op in the payload', () => {
         /*
         Header: { "alg": "HS256", "typ": "JWT" }
-        Payload: { "data": { "email": "rsa_lord@juice-sh.op" }, "iat": 1508639612, "exp": 9999999999 }
+        Payload: { "data": { "email": "rsa_lord@juice-sh.op" }, "iat": timestamp }
          */
-        req.headers = { authorization: 'Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJkYXRhIjp7ImVtYWlsIjoicnNhX2xvcmRAanVpY2Utc2gub3AifSwiaWF0IjoxNTgyMjIxNTc1fQ.ycFwtqh4ht4Pq9K5rhiPPY256F9YCTIecd4FHFuSEAg' }
+        const mockToken = ServerJWTTestHelper.createForgedJWT('rsa_lord@juice-sh.op')
+        req.headers = { authorization: `Bearer ${mockToken}` }
 
         verify.jwtChallenges()(req, res, next)
 
@@ -304,9 +308,10 @@ describe('verify', () => {
       it('"jwtForgedChallenge" is solved when forged token HMAC-signed with public RSA-key has string "rsa_lord@" in the payload', () => {
         /*
         Header: { "alg": "HS256", "typ": "JWT" }
-        Payload: { "data": { "email": "rsa_lord@" }, "iat": 1508639612, "exp": 9999999999 }
+        Payload: { "data": { "email": "rsa_lord@" }, "iat": timestamp }
          */
-        req.headers = { authorization: 'Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJkYXRhIjp7ImVtYWlsIjoicnNhX2xvcmRAIn0sImlhdCI6MTU4MjIyMTY3NX0.50f6VAIQk2Uzpf3sgH-1JVrrTuwudonm2DKn2ec7Tg8' }
+        const mockToken = ServerJWTTestHelper.createForgedJWT('rsa_lord@')
+        req.headers = { authorization: `Bearer ${mockToken}` }
 
         verify.jwtChallenges()(req, res, next)
 
