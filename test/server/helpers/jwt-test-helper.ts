@@ -3,6 +3,9 @@
  * SPDX-License-Identifier: MIT
  */
 
+import * as crypto from 'crypto'
+import { publicKey } from '../../../lib/insecurity'
+
 /**
  * Test utility for creating challenge-specific JWT tokens for server-side tests
  * These tokens are designed for security challenges and should NEVER be used in production
@@ -41,11 +44,13 @@ export class ServerJWTTestHelper {
     const encodedHeader = Buffer.from(JSON.stringify(header)).toString('base64url')
     const encodedPayload = Buffer.from(JSON.stringify(payload)).toString('base64url')
     
-    // Generate a mock signature for testing purposes
-    // In a real scenario, this would be generated using the public key as HMAC secret
-    const mockSignature = Buffer.from(`forged-signature-${Date.now()}-for-challenge`).toString('base64url')
+    // Create HMAC signature using public key as secret (this is the vulnerability!)
+    const signatureData = `${encodedHeader}.${encodedPayload}`
+    const hmac = crypto.createHmac('sha256', publicKey)
+    hmac.update(signatureData)
+    const signature = hmac.digest('base64url')
     
-    return `${encodedHeader}.${encodedPayload}.${mockSignature}`
+    return `${encodedHeader}.${encodedPayload}.${signature}`
   }
 
   /**
