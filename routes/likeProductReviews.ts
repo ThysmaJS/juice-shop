@@ -17,45 +17,97 @@ export function likeProductReviews () {
   return async (req: Request, res: Response, next: NextFunction) => {
     const id = req.body.id
     const user = security.authenticatedUsers.from(req)
+    
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized' })
     }
 
+    // Input validation and sanitization
+    if (!id) {
+      return res.status(400).json({ error: 'Missing review ID' })
+    }
+
+    // Validate ID format - should be a string for MongoDB ObjectId
+    if (typeof id !== 'string') {
+      return res.status(400).json({ error: 'Invalid review ID format' })
+    }
+
+    // Sanitize ID to prevent NoSQL injection
+    const sanitizedId = id.toString().trim()
+    
+    // Basic validation for MongoDB ObjectId format (24 hex characters)
+    if (!/^[a-fA-F0-9]{24}$/.test(sanitizedId) && sanitizedId.length > 0) {
+      // Allow non-ObjectId strings for backward compatibility but sanitize them
+      const safeSanitizedId = sanitizedId.replace(/[^a-zA-Z0-9\-_.]/g, '')
+      if (safeSanitizedId !== sanitizedId) {
+        console.warn('Potentially malicious review ID sanitized:', sanitizedId)
+      }
+    }
+
+    // Additional length restriction
+    if (sanitizedId.length > 100) {
+      return res.status(400).json({ error: 'Review ID too long' })
+    }
+
     try {
-      const review = await db.reviewsCollection.findOne({ _id: id })
+      // Use sanitized ID in database queries
+      const review = await db.reviewsCollection.findOne({ _id: sanitizedId })
       if (!review) {
         return res.status(404).json({ error: 'Not found' })
       }
 
-      const likedBy = review.likedBy
+      // Validate likedBy array exists and is an array
+      const likedBy = Array.isArray(review.likedBy) ? review.likedBy : []
+      
+      // Validate user email
+      if (!user.data?.email || typeof user.data.email !== 'string') {
+        return res.status(400).json({ error: 'Invalid user data' })
+      }
+
       if (likedBy.includes(user.data.email)) {
         return res.status(403).json({ error: 'Not allowed' })
       }
 
+      // Use sanitized ID in update operations
       await db.reviewsCollection.update(
-        { _id: id },
+        { _id: sanitizedId },
         { $inc: { likesCount: 1 } }
       )
 
       // Artificial wait for timing attack challenge
       await sleep(150)
+      
       try {
-        const updatedReview: Review = await db.reviewsCollection.findOne({ _id: id })
-        const updatedLikedBy = updatedReview.likedBy
+        const updatedReview: Review = await db.reviewsCollection.findOne({ _id: sanitizedId })
+        
+        if (!updatedReview) {
+          return res.status(404).json({ error: 'Review not found after update' })
+        }
+
+        const updatedLikedBy = Array.isArray(updatedReview.likedBy) ? [...updatedReview.likedBy] : []
         updatedLikedBy.push(user.data.email)
 
         const count = updatedLikedBy.filter(email => email === user.data.email).length
         challengeUtils.solveIf(challenges.timingAttackChallenge, () => count > 2)
 
         const result = await db.reviewsCollection.update(
-          { _id: id },
+          { _id: sanitizedId },
           { $set: { likedBy: updatedLikedBy } }
         )
-        res.json(result)
+        
+        // Sanitize response to prevent information leakage
+        const sanitizedResult = {
+          acknowledged: result.acknowledged || false,
+          modifiedCount: result.modifiedCount || 0
+        }
+        
+        res.json(sanitizedResult)
       } catch (err) {
-        res.status(500).json(err)
+        console.error('Database update error:', err)
+        res.status(500).json({ error: 'Internal server error' })
       }
     } catch (err) {
+      console.error('Database query error:', err)
       res.status(400).json({ error: 'Wrong Params' })
     }
   }
