@@ -6,6 +6,7 @@
 import { type NextFunction, type Request, type Response } from 'express'
 import yaml from 'js-yaml'
 import fs from 'node:fs'
+import path from 'node:path'
 
 import { getCodeChallenges } from '../lib/codingChallenges'
 import * as challengeUtils from '../lib/challengeUtils'
@@ -69,6 +70,17 @@ export const getVerdict = (vulnLines: number[], neutralLines: number[], selected
 
 export const checkVulnLines = () => async (req: Request<Record<string, unknown>, Record<string, unknown>, VerdictRequestBody>, res: Response, next: NextFunction) => {
   const key = req.body.key
+  
+  // Security fix: Validate key parameter to prevent path traversal
+  if (!key || typeof key !== 'string') {
+    return res.status(400).json({ status: 'error', error: 'Invalid key parameter' })
+  }
+  
+  // Security fix: Allow only alphanumeric characters, hyphens and underscores
+  if (!/^[a-zA-Z0-9_-]+$/.test(key)) {
+    return res.status(400).json({ status: 'error', error: 'Invalid key format' })
+  }
+  
   let snippetData
   try {
     snippetData = await retrieveCodeSnippet(key)
@@ -86,8 +98,16 @@ export const checkVulnLines = () => async (req: Request<Record<string, unknown>,
   const selectedLines: number[] = req.body.selectedLines
   const verdict = getVerdict(vulnLines, neutralLines, selectedLines)
   let hint
-  if (fs.existsSync('./data/static/codefixes/' + key + '.info.yml')) {
-    const codingChallengeInfos = yaml.load(fs.readFileSync('./data/static/codefixes/' + key + '.info.yml', 'utf8'))
+  
+  // Security fix: Use path.join and validate the file path
+  const safeFilePath = path.join('./data/static/codefixes/', key + '.info.yml')
+  
+  // Security fix: Ensure the resolved path is still within the expected directory
+  const resolvedPath = path.resolve(safeFilePath)
+  const expectedDir = path.resolve('./data/static/codefixes/')
+  
+  if (resolvedPath.startsWith(expectedDir) && fs.existsSync(safeFilePath)) {
+    const codingChallengeInfos = yaml.load(fs.readFileSync(safeFilePath, 'utf8'))
     if (codingChallengeInfos?.hints) {
       if (accuracy.getFindItAttempts(key) > codingChallengeInfos.hints.length) {
         if (vulnLines.length === 1) {
