@@ -14,6 +14,9 @@ import * as models from '../models/index'
 import { type User } from '../data/types'
 import * as utils from '../lib/utils'
 
+// Security fix: Import the authenticatedUsers for rate limiting
+const authenticatedUsers = security.authenticatedUsers
+
 // vuln-code-snippet start loginAdminChallenge loginBenderChallenge loginJimChallenge
 export function login () {
   function afterLogin (user: { data: User, bid: number }, res: Response, next: NextFunction) {
@@ -31,8 +34,41 @@ export function login () {
 
   return (req: Request, res: Response, next: NextFunction) => {
     verifyPreLoginChallenges(req) // vuln-code-snippet hide-line
-    models.sequelize.query(`SELECT * FROM Users WHERE email = '${req.body.email || ''}' AND password = '${security.hash(req.body.password || '')}' AND deletedAt IS NULL`, { model: UserModel, plain: true }) // vuln-code-snippet vuln-line loginAdminChallenge loginBenderChallenge loginJimChallenge
-      .then((authenticatedUser) => { // vuln-code-snippet neutral-line loginAdminChallenge loginBenderChallenge loginJimChallenge
+    
+    // Input validation and sanitization
+    const email = req.body.email || ''
+    const password = req.body.password || ''
+    
+    // Basic input validation
+    if (typeof email !== 'string' || typeof password !== 'string') {
+      return res.status(400).json({ error: 'Invalid input format' })
+    }
+    
+    // Length validation to prevent DoS
+    if (email.length > 254) { // RFC 5321 limit
+      return res.status(400).json({ error: 'Email too long' })
+    }
+    
+    if (password.length > 1000) { // Prevent DoS
+      return res.status(400).json({ error: 'Password too long' })
+    }
+    
+    // Sanitize inputs
+    const sanitizedEmail = email.trim()
+    const sanitizedPassword = password
+    
+    // Security fix: Use parameterized queries to prevent SQL injection
+    models.sequelize.query(
+      'SELECT * FROM Users WHERE email = :email AND password = :password AND deletedAt IS NULL',
+      { 
+        replacements: { 
+          email: sanitizedEmail, 
+          password: security.hash(sanitizedPassword) 
+        },
+        model: UserModel, 
+        plain: true 
+      }
+    ).then((authenticatedUser) => { // vuln-code-snippet neutral-line loginAdminChallenge loginBenderChallenge loginJimChallenge
         const user = utils.queryResultToJson(authenticatedUser)
         if (user.data?.id && user.data.totpSecret !== '') {
           res.status(401).json({

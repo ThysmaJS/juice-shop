@@ -17,12 +17,11 @@ export function likeProductReviews () {
   return async (req: Request, res: Response, next: NextFunction) => {
     const id = req.body.id
     const user = security.authenticatedUsers.from(req)
-    
+    // Security fix: Comprehensive input validation and sanitization
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized' })
     }
 
-    // Input validation and sanitization
     if (!id) {
       return res.status(400).json({ error: 'Missing review ID' })
     }
@@ -35,18 +34,9 @@ export function likeProductReviews () {
     // Sanitize ID to prevent NoSQL injection
     const sanitizedId = id.toString().trim()
     
-    // Basic validation for MongoDB ObjectId format (24 hex characters)
-    if (!/^[a-fA-F0-9]{24}$/.test(sanitizedId) && sanitizedId.length > 0) {
-      // Allow non-ObjectId strings for backward compatibility but sanitize them
-      const safeSanitizedId = sanitizedId.replace(/[^a-zA-Z0-9\-_.]/g, '')
-      if (safeSanitizedId !== sanitizedId) {
-        console.warn('Potentially malicious review ID sanitized:', sanitizedId)
-      }
-    }
-
-    // Additional length restriction
-    if (sanitizedId.length > 100) {
-      return res.status(400).json({ error: 'Review ID too long' })
+    // Validate MongoDB ObjectId format (24 hex characters)
+    if (!/^[a-fA-F0-9]{24}$/.test(sanitizedId)) {
+      return res.status(400).json({ error: 'Invalid review ID format' })
     }
 
     try {
