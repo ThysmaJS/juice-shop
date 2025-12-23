@@ -13,6 +13,12 @@ export function orderHistory () {
     const loggedInUser = security.authenticatedUsers.get(req.headers?.authorization?.replace('Bearer ', ''))
     if (loggedInUser?.data?.email && loggedInUser.data.id) {
       const email = loggedInUser.data.email
+      
+      // Security fix: Validate email format before using in query
+      if (typeof email !== 'string' || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return res.status(400).json({ error: 'Invalid email format' })
+      }
+      
       const updatedEmail = email.replace(/[aeiou]/gi, '*')
       const order = await ordersCollection.find({ email: updatedEmail })
       res.status(200).json({ status: 'success', data: order })
@@ -31,9 +37,25 @@ export function allOrders () {
 
 export function toggleDeliveryStatus () {
   return async (req: Request, res: Response, next: NextFunction) => {
+    // Security fix: Validate order ID
+    const orderId = req.params.id
+    if (!orderId || typeof orderId !== 'string') {
+      return res.status(400).json({ error: 'Invalid order ID' })
+    }
+    
+    // Validate MongoDB ObjectId format (24 hex characters)
+    if (!/^[a-fA-F0-9]{24}$/.test(orderId)) {
+      return res.status(400).json({ error: 'Invalid order ID format' })
+    }
+    
+    // Validate delivery status from request body
+    if (typeof req.body.deliveryStatus !== 'boolean') {
+      return res.status(400).json({ error: 'Invalid delivery status format' })
+    }
+    
     const deliveryStatus = !req.body.deliveryStatus
     const eta = deliveryStatus ? '0' : '1'
-    await ordersCollection.update({ _id: req.params.id }, { $set: { delivered: deliveryStatus, eta } })
+    await ordersCollection.update({ _id: orderId }, { $set: { delivered: deliveryStatus, eta } })
     res.status(200).json({ status: 'success' })
   }
 }

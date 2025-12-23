@@ -32,8 +32,19 @@ interface Product {
 
 export function placeOrder () {
   return (req: Request, res: Response, next: NextFunction) => {
+    // Security fix: Validate and sanitize basket ID
     const id = req.params.id
-    BasketModel.findOne({ where: { id }, include: [{ model: ProductModel, paranoid: false, as: 'Products' }] })
+    if (!id || typeof id !== 'string') {
+      return res.status(400).json({ error: 'Invalid basket ID' })
+    }
+    
+    // Validate ID format (should be numeric)
+    const basketId = parseInt(id, 10)
+    if (isNaN(basketId) || basketId <= 0) {
+      return res.status(400).json({ error: 'Invalid basket ID format' })
+    }
+    
+    BasketModel.findOne({ where: { id: basketId }, include: [{ model: ProductModel, paranoid: false, as: 'Products' }] })
       .then(async (basket: BasketModel | null) => {
         if (basket != null) {
           const customer = security.authenticatedUsers.from(req)
@@ -46,7 +57,7 @@ export function placeOrder () {
 
           fileWriter.on('finish', async () => {
             void basket.update({ coupon: null })
-            await BasketItemModel.destroy({ where: { BasketId: id } })
+            await BasketItemModel.destroy({ where: { BasketId: basketId } })
             res.json({ orderConfirmation: orderId })
           })
 
@@ -114,11 +125,15 @@ export function placeOrder () {
             eta: 5
           }
           if (req.body.orderDetails?.deliveryMethodId) {
-            const deliveryMethodFromModel = await DeliveryModel.findOne({ where: { id: req.body.orderDetails.deliveryMethodId } })
-            if (deliveryMethodFromModel != null) {
-              deliveryMethod.deluxePrice = deliveryMethodFromModel.deluxePrice
-              deliveryMethod.price = deliveryMethodFromModel.price
-              deliveryMethod.eta = deliveryMethodFromModel.eta
+            // Security fix: Validate delivery method ID
+            const deliveryMethodId = parseInt(req.body.orderDetails.deliveryMethodId, 10)
+            if (!isNaN(deliveryMethodId) && deliveryMethodId > 0) {
+              const deliveryMethodFromModel = await DeliveryModel.findOne({ where: { id: deliveryMethodId } })
+              if (deliveryMethodFromModel != null) {
+                deliveryMethod.deluxePrice = deliveryMethodFromModel.deluxePrice
+                deliveryMethod.price = deliveryMethodFromModel.price
+                deliveryMethod.eta = deliveryMethodFromModel.eta
+              }
             }
           }
           const deliveryAmount = security.isDeluxe(req) ? deliveryMethod.deluxePrice : deliveryMethod.price
@@ -136,19 +151,23 @@ export function placeOrder () {
           challengeUtils.solveIf(challenges.negativeOrderChallenge, () => { return totalPrice < 0 })
 
           if (req.body.UserId) {
-            if (req.body.orderDetails && req.body.orderDetails.paymentId === 'wallet') {
-              const wallet = await WalletModel.findOne({ where: { UserId: req.body.UserId } })
-              if ((wallet != null) && wallet.balance >= totalPrice) {
-                WalletModel.decrement({ balance: totalPrice }, { where: { UserId: req.body.UserId } }).catch((error: unknown) => {
-                  next(error)
-                })
-              } else {
-                next(new Error('Insufficient wallet balance.'))
+            // Security fix: Validate user ID
+            const userId = parseInt(req.body.UserId, 10)
+            if (!isNaN(userId) && userId > 0) {
+              if (req.body.orderDetails && req.body.orderDetails.paymentId === 'wallet') {
+                const wallet = await WalletModel.findOne({ where: { UserId: userId } })
+                if ((wallet != null) && wallet.balance >= totalPrice) {
+                  WalletModel.decrement({ balance: totalPrice }, { where: { UserId: userId } }).catch((error: unknown) => {
+                    next(error)
+                  })
+                } else {
+                  next(new Error('Insufficient wallet balance.'))
+                }
               }
+              WalletModel.increment({ balance: totalPoints }, { where: { UserId: userId } }).catch((error: unknown) => {
+                next(error)
+              })
             }
-            WalletModel.increment({ balance: totalPoints }, { where: { UserId: req.body.UserId } }).catch((error: unknown) => {
-              next(error)
-            })
           }
 
           db.ordersCollection.insert({
