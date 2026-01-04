@@ -52,11 +52,12 @@ export class MatSearchBarComponent extends AbstractControlValueAccessor
   @Input() matAutocomplete: MatAutocomplete
   @Input() placeholder = ''
   @Input() alwaysOpen = false
-  @Output() onBlur = new EventEmitter<string>()
-  @Output() onClose = new EventEmitter<void>()
-  @Output() onEnter = new EventEmitter<string>()
-  @Output() onFocus = new EventEmitter<string>()
-  @Output() onOpen = new EventEmitter<void>()
+  // Angular outputs should not be prefixed with "on"
+  @Output() blur = new EventEmitter<string>()
+  @Output() closed = new EventEmitter<void>()
+  @Output() enter = new EventEmitter<string>()
+  @Output() focus = new EventEmitter<string>()
+  @Output() opened = new EventEmitter<void>()
 
   searchVisible = false
 
@@ -76,27 +77,27 @@ export class MatSearchBarComponent extends AbstractControlValueAccessor
     }
     this.value = ''
     this.updateChanges()
-    this.onClose.emit()
+    this.closed.emit()
   }
 
   public open (): void {
     this.searchVisible = true
     this.inputElement.nativeElement.focus()
-    this.onOpen.emit()
+    this.opened.emit()
   }
 
   onBlurring (searchValue: string) {
     if (!searchValue && !this.alwaysOpen) {
       this.searchVisible = false
     }
-    this.onBlur.emit(searchValue)
+    this.blur.emit(searchValue)
   }
 
   onEnterring (searchValue: string) {
-    this.onEnter.emit(searchValue)
+    this.enter.emit(searchValue)
   }
 
   onFocussing (searchValue: string) {
-    this.onFocus.emit(searchValue)
+    this.focus.emit(searchValue)
   }
 }

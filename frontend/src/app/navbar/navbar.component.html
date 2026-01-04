@@ -24,7 +24,7 @@
     <div>
       <div id="product-search-fixture"></div>
     </div>
-    <app-mat-search-bar #searchControl id="searchQuery" (onEnter)="search(searchControl.value)"
+    <app-mat-search-bar #searchControl id="searchQuery" (enter)="search(searchControl.value)"
     aria-label="Click to search"></app-mat-search-bar>
 
     <button [matMenuTriggerFor]="userMenu" mat-button style="vertical-align: middle; height:48px;" class="buttons hide-lt-md"
