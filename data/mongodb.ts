@@ -44,5 +44,30 @@ export const insertSafeOrder = async (order: {
 	if (hasNoSqlOperators(order)) {
 		throw new Error('Invalid characters in order payload')
 	}
-	return await ordersCollection.insert(order)
+
+	// Rebuild a strict, prototype-free document from validated inputs
+	const safeProducts = order.products.map(p => ({
+		quantity: Number.isInteger(p.quantity) ? p.quantity : 0,
+		id: typeof p.id === 'number' ? p.id : null,
+		name: String(p.name),
+		price: Number.isFinite(p.price) ? p.price : 0,
+		total: Number.isFinite(p.total) ? p.total : 0,
+		bonus: Number.isFinite(p.bonus) ? p.bonus : 0
+	}))
+
+	const safeOrder = Object.assign(Object.create(null), {
+		promotionalAmount: String(order.promotionalAmount),
+		paymentId: (order.paymentId === 'wallet' || order.paymentId === 'card') ? order.paymentId : null,
+		addressId: Number.isInteger(order.addressId) ? order.addressId : null,
+		orderId: String(order.orderId),
+		delivered: Boolean(order.delivered),
+		email: typeof order.email === 'string' ? order.email : undefined,
+		totalPrice: Number.isFinite(order.totalPrice) ? order.totalPrice : 0,
+		products: safeProducts,
+		bonus: Number.isFinite(order.bonus) ? order.bonus : 0,
+		deliveryPrice: Number.isFinite(order.deliveryPrice) ? order.deliveryPrice : 0,
+		eta: String(order.eta)
+	})
+
+	return await ordersCollection.insert(Object.freeze(safeOrder))
 }

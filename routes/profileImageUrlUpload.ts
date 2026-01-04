@@ -21,24 +21,28 @@ export function profileImageUrlUpload () {
       const loggedInUser = security.authenticatedUsers.get(req.cookies.token)
       if (loggedInUser) {
         try {
-          // Validate remote image URL against allowlist and protocol
-          const allowedHosts = new Set((process.env.PROFILE_IMAGE_ALLOWED_HOSTS ?? '').split(',').map(h => h.trim()).filter(Boolean))
+          // Validate remote image URL strictly against an exact allowlist of URLs
+          // If PROFILE_IMAGE_ALLOWED_URLS is not provided, remote image fetching is blocked
+          const allowedUrls = new Set((process.env.PROFILE_IMAGE_ALLOWED_URLS ?? '').split(',').map(u => u.trim()).filter(Boolean))
+          if (allowedUrls.size === 0) {
+            throw new Error('Remote image fetching disabled')
+          }
           let parsed: URL
           try {
             parsed = new URL(url)
           } catch {
             throw new Error('Invalid image URL')
           }
-          const isPrivateHost = /^(localhost|127\.0\.0\.1)$/i.test(parsed.hostname) || /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(parsed.hostname)
-          if (parsed.protocol !== 'https:' || isPrivateHost || (allowedHosts.size > 0 && !allowedHosts.has(parsed.hostname))) {
-            throw new Error('Remote image host not allowed')
+          const finalUrl = [...allowedUrls].find(u => u === parsed.toString())
+          if (!finalUrl) {
+            throw new Error('Remote image URL not allowed')
           }
 
-          const response = await fetch(parsed.toString())
+          const response = await fetch(finalUrl)
           if (!response.ok || !response.body) {
             throw new Error('url returned a non-OK status code or an empty body')
           }
-          const ext = ['jpg', 'jpeg', 'png', 'svg', 'gif'].includes(parsed.pathname.split('.').slice(-1)[0].toLowerCase()) ? parsed.pathname.split('.').slice(-1)[0].toLowerCase() : 'jpg'
+          const ext = ['jpg', 'jpeg', 'png', 'svg', 'gif'].includes(new URL(finalUrl).pathname.split('.').slice(-1)[0].toLowerCase()) ? new URL(finalUrl).pathname.split('.').slice(-1)[0].toLowerCase() : 'jpg'
           const fileStream = fs.createWriteStream(`frontend/dist/frontend/assets/public/images/uploads/${loggedInUser.data.id}.${ext}`, { flags: 'w' })
           await finished(Readable.fromWeb(response.body as any).pipe(fileStream))
           await UserModel.findByPk(loggedInUser.data.id).then(async (user: UserModel | null) => { return await user?.update({ profileImage: `/assets/public/images/uploads/${loggedInUser.data.id}.${ext}` }) }).catch((error: Error) => { next(error) })
