@@ -27,7 +27,17 @@ export function createProductReviews () {
 
       // Rejeter valeurs contenant opérateurs Mongo-like
       const containsNoSqlOperator = (v: string) => v.includes('$') || v.includes('.')
-      const sanitizeText = (v: string) => v.replace(/[\x00-\x1F\x7F<>$]/g, '').substring(0, 500)
+      const sanitizeText = (v: string) => {
+        // Remove control characters without embedding them in the literal
+        const cleaned = v
+          .split('')
+          .filter(ch => {
+            const code = ch.charCodeAt(0)
+            return code >= 32 && code !== 127 && !('<>$'.includes(ch))
+          })
+          .join('')
+        return cleaned.substring(0, 500)
+      }
 
       // productId doit être numérique et non vide
       const productIdNum = Number.parseInt(rawProductId, 10)

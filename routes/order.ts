@@ -157,7 +157,28 @@ export function placeOrder () {
           if (paymentId && paymentId !== 'wallet' && paymentId !== 'card') {
             return next(new Error('Unsupported payment method'))
           }
-          db.ordersCollection.insert({
+          // Map basket products to a safe subset of fields
+          const safeProducts = basketProducts.map(p => ({
+            quantity: Number.isFinite(p.quantity) ? p.quantity : 0,
+            id: typeof p.id === 'number' ? p.id : null,
+            name: String(p.name),
+            price: Number.isFinite(p.price) ? p.price : 0,
+            total: Number.isFinite(p.total) ? p.total : 0,
+            bonus: Number.isFinite(p.bonus) ? p.bonus : 0
+          }))
+
+          // Defensive check to avoid NoSQL operator injection in any string
+          const hasNoSqlOperators = (val: unknown): boolean => {
+            if (typeof val === 'string') return val.includes('$') || val.includes('.')
+            if (Array.isArray(val)) return val.some(v => hasNoSqlOperators(v))
+            if (val && typeof val === 'object') {
+              return Object.keys(val as Record<string, unknown>).some(k => k.includes('$') || k.includes('.')) ||
+                Object.values(val as Record<string, unknown>).some(v => hasNoSqlOperators(v))
+            }
+            return false
+          }
+
+          const orderDoc = {
             promotionalAmount: discountAmount,
             paymentId,
             addressId,
@@ -165,11 +186,17 @@ export function placeOrder () {
             delivered: false,
             email: (email ? email.replace(/[aeiou]/gi, '*') : undefined),
             totalPrice,
-            products: basketProducts,
+            products: safeProducts,
             bonus: totalPoints,
             deliveryPrice: deliveryAmount,
             eta: deliveryMethod.eta.toString()
-          }).then(() => {
+          }
+
+          if (hasNoSqlOperators(orderDoc)) {
+            return next(new Error('Invalid characters in order payload'))
+          }
+
+          db.ordersCollection.insert(orderDoc).then(() => {
             doc.end()
           })
         } else {
