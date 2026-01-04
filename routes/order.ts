@@ -221,7 +221,7 @@ export function placeOrder () {
             return next(new Error('Invalid product data'))
           }
 
-          db.ordersCollection.insert(Object.freeze(orderDoc)).then(() => {
+          db.insertSafeOrder(Object.freeze(orderDoc)).then(() => {
             doc.end()
           })
         } else {
