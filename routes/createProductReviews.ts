@@ -20,10 +20,21 @@ export function createProductReviews () {
     )
 
     try {
+      // Validation & sanitisation basiques pour éviter l'injection NoSQL
+      const productId = String(req.params.id || '')
+      const message = typeof req.body.message === 'string' ? req.body.message.substring(0, 500) : ''
+      const author = typeof req.body.author === 'string' ? req.body.author : ''
+
+      // Rejeter valeurs contenant opérateurs Mongo-like
+      const containsNoSqlOperator = (v: string) => v.includes('$') || v.includes('.')
+      if (!productId || !message || !author || containsNoSqlOperator(productId) || containsNoSqlOperator(author)) {
+        return res.status(400).json({ error: 'Invalid review payload' })
+      }
+
       await reviewsCollection.insert({
-        product: req.params.id,
-        message: req.body.message,
-        author: req.body.author,
+        product: productId,
+        message,
+        author,
         likesCount: 0,
         likedBy: []
       })

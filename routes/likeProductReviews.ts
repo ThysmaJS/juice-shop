@@ -15,13 +15,17 @@ const sleep = async (ms: number) => await new Promise(resolve => setTimeout(reso
 
 export function likeProductReviews () {
   return async (req: Request, res: Response, next: NextFunction) => {
-    const id = req.body.id
+    const id = String(req.body.id || '')
     const user = security.authenticatedUsers.from(req)
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized' })
     }
 
     try {
+      // Validation ID simple pour éviter opérateurs NoSQL
+      if (!id || id.includes('$') || id.includes('.')) {
+        return res.status(400).json({ error: 'Invalid review id' })
+      }
       const review = await db.reviewsCollection.findOne({ _id: id })
       if (!review) {
         return res.status(404).json({ error: 'Not found' })

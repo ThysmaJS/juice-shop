@@ -12,8 +12,13 @@ export function orderHistory () {
   return async (req: Request, res: Response, next: NextFunction) => {
     const loggedInUser = security.authenticatedUsers.get(req.headers?.authorization?.replace('Bearer ', ''))
     if (loggedInUser?.data?.email && loggedInUser.data.id) {
-      const email = loggedInUser.data.email
+      const email = String(loggedInUser.data.email)
+      // Masquage comme lors de la création de commande
       const updatedEmail = email.replace(/[aeiou]/gi, '*')
+      // Filtre strict: pas d’opérateur provenant de l’utilisateur
+      if (updatedEmail.includes('$') || updatedEmail.includes('.')) {
+        return next(new Error('Invalid email filter'))
+      }
       const order = await ordersCollection.find({ email: updatedEmail })
       res.status(200).json({ status: 'success', data: order })
     } else {
