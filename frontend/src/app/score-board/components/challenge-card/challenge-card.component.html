@@ -3,9 +3,9 @@
 <div class="name-row">
   <div class="dot"></div>
   <span class="name">{{ challenge.name }}</span>
-  <difficulty-stars
+  <app-difficulty-stars
     [difficulty]="challenge.difficulty"
-  ></difficulty-stars>
+  ></app-difficulty-stars>
 </div>
 <div class="description-row" [innerHtml]="challenge.description"></div>
 <div class="bottom-row">

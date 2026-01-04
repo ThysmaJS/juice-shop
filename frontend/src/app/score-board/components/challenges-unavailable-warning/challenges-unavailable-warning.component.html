@@ -1,5 +1,5 @@
 @if (numberOfDisabledChallenges > 0) {
-  <warning-card>
+  <app-warning-card>
     <ng-container warning-icon>
       @if (disabledBecauseOfEnv === 'Windows') {
         <i class="env-icon" [ngClass]="'fab fa-' + disabledBecauseOfEnv.toString().toLowerCase()"></i>
@@ -19,5 +19,5 @@
         {{ 'SHOW_DISABLED_CHALLENGES' | translate }}
       }
     </button>
-  </warning-card>
+  </app-warning-card>
 }

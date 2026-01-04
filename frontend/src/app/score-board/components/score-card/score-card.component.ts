@@ -2,7 +2,7 @@ import { Component, Input } from '@angular/core'
 import { DecimalPipe } from '@angular/common'
 
 @Component({
-  selector: 'score-card',
+  selector: 'app-score-card',
   templateUrl: './score-card.component.html',
   styleUrls: ['./score-card.component.scss'],
   imports: [DecimalPipe]

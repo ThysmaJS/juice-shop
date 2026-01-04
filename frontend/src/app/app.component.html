@@ -5,7 +5,7 @@
 
 <mat-sidenav-container fullscreen>
   <mat-sidenav #sidenav mode="over">
-    <sidenav (sidenavToggle)="sidenav.toggle()"></sidenav>
+    <app-sidenav (sidenavToggle)="sidenav.toggle()"></app-sidenav>
   </mat-sidenav>
   <app-navbar (sidenavToggle)="sidenav.toggle()"></app-navbar>
   <app-server-started-notification></app-server-started-notification>

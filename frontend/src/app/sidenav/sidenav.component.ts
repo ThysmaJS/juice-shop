@@ -24,7 +24,7 @@ import { MatNavList, MatListSubheaderCssMatStyler, MatListItem } from '@angular/
 import { MatToolbar, MatToolbarRow } from '@angular/material/toolbar'
 
 @Component({
-  selector: 'sidenav',
+  selector: 'app-sidenav',
   templateUrl: './sidenav.component.html',
   styleUrls: ['./sidenav.component.scss'],
   imports: [MatToolbar, MatToolbarRow, MatNavList, MatButtonModule, MatListSubheaderCssMatStyler, TranslateModule, MatListItem, RouterLink, MatIconModule, NgClass, MatDivider]

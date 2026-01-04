@@ -7,7 +7,7 @@ import { MatIconModule } from '@angular/material/icon'
 import { WarningCardComponent } from '../warning-card/warning-card.component'
 
 @Component({
-  selector: 'tutorial-mode-warning',
+  selector: 'app-tutorial-mode-warning',
   templateUrl: './tutorial-mode-warning.component.html',
   imports: [WarningCardComponent, MatIconModule, TranslateModule]
 })

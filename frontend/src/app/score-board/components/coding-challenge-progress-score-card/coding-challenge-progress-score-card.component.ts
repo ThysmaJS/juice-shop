@@ -5,7 +5,7 @@ import { TranslateModule } from '@ngx-translate/core'
 import { ScoreCardComponent } from '../score-card/score-card.component'
 
 @Component({
-  selector: 'coding-challenge-progress-score-card',
+  selector: 'app-coding-challenge-progress-score-card',
   templateUrl: './coding-challenge-progress-score-card.component.html',
   styleUrls: ['./coding-challenge-progress-score-card.component.scss'],
   imports: [ScoreCardComponent, TranslateModule]

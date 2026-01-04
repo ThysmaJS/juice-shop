@@ -1,7 +1,7 @@
 import { Component, Input } from '@angular/core'
 
 @Component({
-  selector: 'difficulty-stars',
+  selector: 'app-difficulty-stars',
   templateUrl: './difficulty-stars.component.html',
   styleUrls: ['./difficulty-stars.component.scss'],
   imports: []

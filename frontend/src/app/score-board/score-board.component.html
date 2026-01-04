@@ -1,16 +1,16 @@
 <div class="score-row">
-  <hacking-challenge-progress-score-card [allChallenges]="allChallenges" />
-  <coding-challenge-progress-score-card [allChallenges]="allChallenges" />
-  <difficulty-overview-score-card [allChallenges]="allChallenges" />
+  <app-hacking-challenge-progress-score-card [allChallenges]="allChallenges" />
+  <app-coding-challenge-progress-score-card [allChallenges]="allChallenges" />
+  <app-difficulty-overview-score-card [allChallenges]="allChallenges" />
 </div>
 
 @if (applicationConfiguration?.challenges.restrictToTutorialsFirst === false) {
-  <filter-settings
+  <app-filter-settings
     [filterSetting]="filterSetting"
     (filterSettingChange)="onFilterSettingUpdate($event)"
     [allChallenges]="allChallenges"
     [reset]="reset.bind(this)"
-  ></filter-settings>
+  ></app-filter-settings>
 }
 
 @if (isInitialized === false) {
@@ -25,10 +25,10 @@
     [filterSetting]="filterSetting"
     (filterSettingChange)="onFilterSettingUpdate($event)"
   ></challenges-unavailable-warning>
-  <tutorial-mode-warning
+  <app-tutorial-mode-warning
     [allChallenges]="allChallenges"
     [applicationConfig]="applicationConfiguration"
-  ></tutorial-mode-warning>
+  ></app-tutorial-mode-warning>
   @if (filteredChallenges.length > 0) {
     <div class="challenges">
       @for (challenge of filteredChallenges; track getChallengeKey($index, challenge)) {

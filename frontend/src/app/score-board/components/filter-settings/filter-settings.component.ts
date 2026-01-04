@@ -17,7 +17,7 @@ import { MatIconModule } from '@angular/material/icon'
 import { MatFormFieldModule, MatPrefix, MatLabel } from '@angular/material/form-field'
 
 @Component({
-  selector: 'filter-settings',
+  selector: 'app-filter-settings',
   templateUrl: './filter-settings.component.html',
   styleUrls: ['./filter-settings.component.scss'],
   imports: [MatFormFieldModule, MatIconModule, MatPrefix, MatLabel, TranslateModule, MatInputModule, MatSelect, MatSelectTrigger, MatOption, DifficultyStarsComponent, MatIconButton, MatTooltip, CategoryFilterComponent, DifficultySelectionSummaryPipe]
