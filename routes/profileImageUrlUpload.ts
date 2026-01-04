@@ -16,28 +16,37 @@ import logger from '../lib/logger'
 export function profileImageUrlUpload () {
   return async (req: Request, res: Response, next: NextFunction) => {
     if (req.body.imageUrl !== undefined) {
-      const url = req.body.imageUrl
+      const url = String(req.body.imageUrl)
       if (url.match(/(.)*solve\/challenges\/server-side(.)*/) !== null) req.app.locals.abused_ssrf_bug = true
       const loggedInUser = security.authenticatedUsers.get(req.cookies.token)
       if (loggedInUser) {
         try {
-          const response = await fetch(url)
+          // Validate remote image URL against allowlist and protocol
+          const allowedHosts = new Set((process.env.PROFILE_IMAGE_ALLOWED_HOSTS ?? '').split(',').map(h => h.trim()).filter(Boolean))
+          let parsed: URL
+          try {
+            parsed = new URL(url)
+          } catch {
+            throw new Error('Invalid image URL')
+          }
+          const isPrivateHost = /^(localhost|127\.0\.0\.1)$/i.test(parsed.hostname) || /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(parsed.hostname)
+          if (parsed.protocol !== 'https:' || isPrivateHost || (allowedHosts.size > 0 && !allowedHosts.has(parsed.hostname))) {
+            throw new Error('Remote image host not allowed')
+          }
+
+          const response = await fetch(parsed.toString())
           if (!response.ok || !response.body) {
             throw new Error('url returned a non-OK status code or an empty body')
           }
-          const ext = ['jpg', 'jpeg', 'png', 'svg', 'gif'].includes(url.split('.').slice(-1)[0].toLowerCase()) ? url.split('.').slice(-1)[0].toLowerCase() : 'jpg'
+          const ext = ['jpg', 'jpeg', 'png', 'svg', 'gif'].includes(parsed.pathname.split('.').slice(-1)[0].toLowerCase()) ? parsed.pathname.split('.').slice(-1)[0].toLowerCase() : 'jpg'
           const fileStream = fs.createWriteStream(`frontend/dist/frontend/assets/public/images/uploads/${loggedInUser.data.id}.${ext}`, { flags: 'w' })
           await finished(Readable.fromWeb(response.body as any).pipe(fileStream))
           await UserModel.findByPk(loggedInUser.data.id).then(async (user: UserModel | null) => { return await user?.update({ profileImage: `/assets/public/images/uploads/${loggedInUser.data.id}.${ext}` }) }).catch((error: Error) => { next(error) })
         } catch (error) {
-          try {
-            const user = await UserModel.findByPk(loggedInUser.data.id)
-            await user?.update({ profileImage: url })
-            logger.warn(`Error retrieving user profile image: ${utils.getErrorMessage(error)}; using image link directly`)
-          } catch (error) {
-            next(error)
-            return
-          }
+          // Do not set arbitrary external URLs as profile images
+          logger.warn(`Blocked external profile image: ${utils.getErrorMessage(error)}`)
+          res.status(400).json({ error: 'Invalid profile image URL' })
+          return
         }
       } else {
         next(new Error('Blocked illegal activity by ' + req.socket.remoteAddress))

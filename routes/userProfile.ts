@@ -50,22 +50,9 @@ export function getUserProfile () {
       return
     }
 
-    let username = user.username
-
-    if (username?.match(/#{(.*)}/) !== null && utils.isChallengeEnabled(challenges.usernameXssChallenge)) {
-      req.app.locals.abused_ssti_bug = true
-      const code = username?.substring(2, username.length - 1)
-      try {
-        if (!code) {
-          throw new Error('Username is null')
-        }
-        username = eval(code) // eslint-disable-line no-eval
-      } catch (err) {
-        username = '\\' + username
-      }
-    } else {
-      username = '\\' + username
-    }
+    // Sanitize and strictly treat username as text, never as code
+    const rawUsername = String(user.username ?? '')
+    const username = entities.encode(rawUsername)
 
     const themeKey = config.get<string>('application.theme') as keyof typeof themes
     const theme = themes[themeKey] || themes['bluegrey-lightgreen']
@@ -85,7 +72,19 @@ export function getUserProfile () {
 
     try {
       const fn = pug.compile(template)
-      const CSP = `img-src 'self' ${user?.profileImage}; script-src 'self' 'unsafe-eval' https://code.getmdl.io http://ajax.googleapis.com`
+      // Restrict img-src to self plus optional allowed external hosts
+      const allowedHosts = new Set((process.env.PROFILE_IMAGE_ALLOWED_HOSTS ?? '').split(',').map(h => h.trim()).filter(Boolean))
+      let imgSrc = `'self'`
+      try {
+        if (user?.profileImage) {
+          const parsed = new URL(user.profileImage)
+          const isPrivateHost = /^(localhost|127\.0\.0\.1)$/i.test(parsed.hostname) || /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(parsed.hostname)
+          if (parsed.protocol === 'https:' && !isPrivateHost && (allowedHosts.size === 0 || allowedHosts.has(parsed.hostname))) {
+            imgSrc += ` ${parsed.origin}`
+          }
+        }
+      } catch {}
+      const CSP = `img-src ${imgSrc}; script-src 'self' https://code.getmdl.io http://ajax.googleapis.com`
 
       challengeUtils.solveIf(challenges.usernameXssChallenge, () => {
         return username && user?.profileImage.match(/;[ ]*script-src(.)*'unsafe-inline'/g) !== null && utils.contains(username, '<script>alert(`xss`)</script>')
@@ -95,7 +94,12 @@ export function getUserProfile () {
         'Content-Security-Policy': CSP
       })
 
-      res.send(fn(user))
+      // Pass only safe fields
+      res.send(fn({
+        username,
+        email: user?.email,
+        profileImage: user?.profileImage
+      }))
     } catch (err) {
       next(new Error('Blocked illegal activity by ' + req.socket.remoteAddress))
     }

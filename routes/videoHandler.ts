@@ -68,7 +68,12 @@ export const promotionVideo = () => {
       template = template.replace(/_primDark_/g, theme.primDark)
       const fn = pug.compile(template)
       let compiledTemplate = fn()
-      compiledTemplate = compiledTemplate.replace('<script id="subtitle"></script>', '<script id="subtitle" type="text/vtt" data-label="English" data-lang="en">' + subs + '</script>')
+      // Sanitize subtitle content to avoid script injection in the template
+      const sanitizedSubs = subs
+        .replace(/<\/?script[^>]*>/gi, '')
+        .replace(/<\/?[a-z][^>]*>/gi, '')
+        .replace(/[\x00-\x1F\x7F]/g, '')
+      compiledTemplate = compiledTemplate.replace('<script id="subtitle"></script>', '<script id="subtitle" type="text/vtt" data-label="English" data-lang="en">' + sanitizedSubs + '</script>')
       res.send(compiledTemplate)
     })
   }

@@ -24,7 +24,9 @@ export function errorHandler () {
 
     const template = await fs.readFile('views/errorPage.pug', { encoding: 'utf-8' })
     const title = `${config.get<string>('application.name')} (Express ${utils.version('express')})`
+    const safeError = utils.getErrorMessage(error)
     const fn = pug.compile(template)
-    res.status(500).send(fn({ title, error }))
+    // Pass only sanitized string values into the template to avoid unsafe rendering
+    res.status(500).send(fn({ title, error: safeError }))
   }
 }
