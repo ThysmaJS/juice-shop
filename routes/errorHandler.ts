@@ -22,9 +22,9 @@ export function errorHandler () {
       return
     }
 
-    const template = await fs.readFile('views/errorPage.pug', { encoding: 'utf-8' })
     const title = `${config.get<string>('application.name')} (Express ${utils.version('express')})`
-    const fn = pug.compile(template)
+    // Compile template from a static file path to avoid dynamic construction
+    const fn = pug.compileFile('views/errorPage.pug')
     // Do not inject error details into the HTML page; log them server-side only
     res.status(500).send(fn({ title }))
   }

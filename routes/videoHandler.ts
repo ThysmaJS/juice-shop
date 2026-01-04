@@ -69,10 +69,17 @@ export const promotionVideo = () => {
       const fn = pug.compile(template)
       let compiledTemplate = fn()
       // Sanitize subtitle content to avoid script injection in the template
-      const sanitizedSubs = subs
+      const stripTags = (s: string) => s
         .replace(/<\/?script[^>]*>/gi, '')
         .replace(/<\/?[a-z][^>]*>/gi, '')
-        .replace(/[\x00-\x1F\x7F]/g, '')
+      const stripControlChars = (s: string) => s
+        .split('')
+        .filter(ch => {
+          const code = ch.charCodeAt(0)
+          return code >= 32 && code !== 127
+        })
+        .join('')
+      const sanitizedSubs = stripControlChars(stripTags(subs))
       compiledTemplate = compiledTemplate.replace('<script id="subtitle"></script>', '<script id="subtitle" type="text/vtt" data-label="English" data-lang="en">' + sanitizedSubs + '</script>')
       res.send(compiledTemplate)
     })

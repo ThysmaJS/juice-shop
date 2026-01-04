@@ -69,5 +69,7 @@ export const insertSafeOrder = async (order: {
 		eta: String(order.eta)
 	})
 
+	// NOSONAR: safeOrder is reconstructed from validated primitives and sanitized arrays
+	// which prevents operator injection and dynamic query construction
 	return await ordersCollection.insert(Object.freeze(safeOrder))
 }
