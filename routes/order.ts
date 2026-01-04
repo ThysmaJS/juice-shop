@@ -151,10 +151,16 @@ export function placeOrder () {
             })
           }
 
+          // Sanitize user-controlled orderDetails fields before insert
+          const paymentId = req.body.orderDetails && typeof req.body.orderDetails.paymentId === 'string' ? req.body.orderDetails.paymentId : null
+          const addressId = req.body.orderDetails && (typeof req.body.orderDetails.addressId === 'string' || typeof req.body.orderDetails.addressId === 'number') ? req.body.orderDetails.addressId : null
+          if (paymentId && paymentId !== 'wallet' && paymentId !== 'card') {
+            return next(new Error('Unsupported payment method'))
+          }
           db.ordersCollection.insert({
             promotionalAmount: discountAmount,
-            paymentId: req.body.orderDetails ? req.body.orderDetails.paymentId : null,
-            addressId: req.body.orderDetails ? req.body.orderDetails.addressId : null,
+            paymentId,
+            addressId,
             orderId,
             delivered: false,
             email: (email ? email.replace(/[aeiou]/gi, '*') : undefined),
