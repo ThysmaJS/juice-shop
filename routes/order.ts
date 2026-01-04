@@ -241,8 +241,13 @@ function calculateApplicableDiscount (basket: BasketModel, req: Request) {
     return discount
   } else if (req.body.couponData) {
     const couponData = Buffer.from(req.body.couponData, 'base64').toString().split('-')
-    const couponCode = couponData[0]
+    const couponCode = String(couponData[0] ?? '')
     const couponDate = Number(couponData[1])
+    // Whitelist coupon codes to avoid dynamic key lookups from user input
+    const allowedCodes = new Set(Object.keys(campaigns))
+    if (!allowedCodes.has(couponCode)) {
+      return 0
+    }
     const campaign = campaigns[couponCode as keyof typeof campaigns]
 
     if (campaign && couponDate == campaign.validOn) { // eslint-disable-line eqeqeq
