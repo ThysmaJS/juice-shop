@@ -20,24 +20,37 @@ export function createProductReviews () {
     )
 
     try {
-      // Validation & sanitisation basiques pour éviter l'injection NoSQL
-      const productId = String(req.params.id || '')
-      const message = typeof req.body.message === 'string' ? req.body.message.substring(0, 500) : ''
-      const author = typeof req.body.author === 'string' ? req.body.author : ''
+      // Validation & sanitisation pour éviter l'injection NoSQL
+      const rawProductId = String(req.params.id ?? '')
+      const rawMessage = typeof req.body.message === 'string' ? req.body.message : ''
+      const rawAuthor = typeof req.body.author === 'string' ? req.body.author : ''
 
       // Rejeter valeurs contenant opérateurs Mongo-like
       const containsNoSqlOperator = (v: string) => v.includes('$') || v.includes('.')
-      if (!productId || !message || !author || containsNoSqlOperator(productId) || containsNoSqlOperator(author)) {
+      const sanitizeText = (v: string) => v.replace(/[\x00-\x1F\x7F<>$]/g, '').substring(0, 500)
+
+      // productId doit être numérique et non vide
+      const productIdNum = Number.parseInt(rawProductId, 10)
+      const message = sanitizeText(rawMessage)
+      const author = sanitizeText(rawAuthor)
+
+      if (!Number.isFinite(productIdNum) || String(productIdNum) !== rawProductId || message.length === 0 || author.length === 0) {
         return res.status(400).json({ error: 'Invalid review payload' })
       }
+      if (containsNoSqlOperator(rawProductId) || containsNoSqlOperator(rawMessage) || containsNoSqlOperator(rawAuthor)) {
+        return res.status(400).json({ error: 'Invalid characters in payload' })
+      }
 
-      await reviewsCollection.insert({
-        product: productId,
+      // Construire un document strictement typé avec champs autorisés uniquement
+      const reviewDoc = {
+        product: productIdNum,
         message,
         author,
         likesCount: 0,
-        likedBy: []
-      })
+        likedBy: [] as string[]
+      }
+
+      await reviewsCollection.insert(reviewDoc)
       return res.status(201).json({ status: 'success' })
     } catch (err: unknown) {
       return res.status(500).json(utils.getErrorMessage(err))
