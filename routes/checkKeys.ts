@@ -7,7 +7,10 @@ import { challenges } from '../data/datacache'
 export function checkKeys () {
   return (req: Request, res: Response) => {
     try {
-      const mnemonic = 'purpose betray marriage blame crunch monitor spin slide donate sport lift clutch'
+      const mnemonic = process.env.NFT_MNEMONIC
+      if (!mnemonic) {
+        return res.status(503).json({ success: false, message: 'Service temporarily unavailable' })
+      }
       const mnemonicWallet = HDNodeWallet.fromPhrase(mnemonic)
       const privateKey = mnemonicWallet.privateKey
       const publicKey = mnemonicWallet.publicKey
