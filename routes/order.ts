@@ -178,10 +178,16 @@ export function placeOrder () {
             return false
           }
 
+          // Additional strict validation for order payload types and formats
+          const isValidCurrency = (v: unknown): boolean => typeof v === 'string' && /^\d+(\.\d{1,2})?$/.test(v)
+          const isPositiveNumber = (v: unknown): boolean => typeof v === 'number' && Number.isFinite(v) && v >= 0
+          const isValidEtaString = (v: unknown): boolean => typeof v === 'string' && /^\d+$/.test(v)
+          const isValidOrderId = (v: unknown): boolean => typeof v === 'string' && /^[a-f0-9]{4}-[a-f0-9]{16}$/i.test(v)
+
           const orderDoc = {
             promotionalAmount: discountAmount,
             paymentId,
-            addressId,
+            addressId: typeof addressId === 'number' ? addressId : null,
             orderId,
             delivered: false,
             email: (email ? email.replace(/[aeiou]/gi, '*') : undefined),
@@ -192,11 +198,30 @@ export function placeOrder () {
             eta: deliveryMethod.eta.toString()
           }
 
+          // Validate final document before inserting
           if (hasNoSqlOperators(orderDoc)) {
             return next(new Error('Invalid characters in order payload'))
           }
+          if (!isValidCurrency(orderDoc.promotionalAmount)) {
+            return next(new Error('Invalid promotional amount'))
+          }
+          if (!isValidOrderId(orderDoc.orderId)) {
+            return next(new Error('Invalid order id'))
+          }
+          if (!isPositiveNumber(orderDoc.totalPrice)) {
+            return next(new Error('Invalid total price'))
+          }
+          if (!isValidEtaString(orderDoc.eta)) {
+            return next(new Error('Invalid ETA format'))
+          }
+          if (!['wallet', 'card', null].includes(orderDoc.paymentId as any)) {
+            return next(new Error('Invalid payment method'))
+          }
+          if (orderDoc.products.some(p => !isPositiveNumber(p.price) || !isPositiveNumber(p.total) || !Number.isInteger(p.quantity))) {
+            return next(new Error('Invalid product data'))
+          }
 
-          db.ordersCollection.insert(orderDoc).then(() => {
+          db.ordersCollection.insert(Object.freeze(orderDoc)).then(() => {
             doc.end()
           })
         } else {
