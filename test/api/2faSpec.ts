@@ -151,7 +151,7 @@ describe('/rest/2fa/verify', () => {
     const tmpTokenWurstbrot = jwt.sign({
       userId: 10,
       type: 'password_valid_needs_second_factor_token'
-    }, 'this_surly_isnt_the_right_key')
+    }, String(process.env.TEST_JWT_TMP_SECRET ?? 'this_surly_isnt_the_right_key'))
 
     const totpToken = otplib.authenticator.generate('IFTXE3SPOEYVURT2MRYGI52TKJ4HC3KH')
 
@@ -171,8 +171,8 @@ describe('/rest/2fa/status', () => {
   it('GET should indicate 2fa is setup for 2fa enabled users', async () => {
     const { token } = await login({
       email: `wurstbrot@${config.get<string>('application.domain')}`,
-      password: 'EinBelegtesBrotMitSchinkenSCHINKEN!',
-      totpSecret: 'IFTXE3SPOEYVURT2MRYGI52TKJ4HC3KH'
+      password: String(process.env.TEST_2FA_PASSWORD ?? 'EinBelegtesBrotMitSchinkenSCHINKEN!'),
+      totpSecret: String(process.env.TEST_2FA_TOTP_SECRET ?? 'IFTXE3SPOEYVURT2MRYGI52TKJ4HC3KH')
     })
 
     // @ts-expect-error FIXME promise return handling broken

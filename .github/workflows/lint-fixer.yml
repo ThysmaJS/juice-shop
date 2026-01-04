@@ -22,7 +22,9 @@ jobs:
     - uses: stefanzweifel/git-auto-commit-action@8621497c8c39c72f3e2a999a26b4ca1b5058a842 #v5.0.1
       with:
         commit_message: "Auto-fix linting issues"
-        branch: ${{ github.head_ref }}
+        # Sécurisation: ne pas utiliser une branche fournie par l'utilisateur
+        # et limiter les auto-commits au ref courant si c'est un push sur 'develop' ou 'main'.
+        branch: ${{ startsWith(github.ref, 'refs/heads/develop') && 'develop' || (startsWith(github.ref, 'refs/heads/main') && 'main' || '') }}
         commit_options: '--signoff'
         commit_user_name: JuiceShopBot
         commit_user_email: 61591748+JuiceShopBot@users.noreply.github.com
