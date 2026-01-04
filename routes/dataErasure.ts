@@ -65,29 +65,22 @@ router.post('/', async (req: Request<Record<string, unknown>, Record<string, unk
     })
 
     res.clearCookie('token')
-    if (req.body.layout) {
-      const filePath: string = path.resolve(req.body.layout).toLowerCase()
-      const isForbiddenFile: boolean = (filePath.includes('ftp') || filePath.includes('ctf.key') || filePath.includes('encryptionkeys'))
-      if (!isForbiddenFile) {
-        res.render('dataErasureResult', {
-          ...req.body
-        }, (error, html) => {
-          if (!html || error) {
-            next(new Error(error.message))
-          } else {
-            const sendlfrResponse: string = html.slice(0, 100) + '......'
-            res.send(sendlfrResponse)
-            challengeUtils.solveIf(challenges.lfrChallenge, () => { return true })
-          }
-        })
-      } else {
-        next(new Error('File access not allowed'))
-      }
-    } else {
-      res.render('dataErasureResult', {
-        ...req.body
-      })
+    const allowedLayouts = ['main', 'plain']
+    const requestedLayout = typeof req.body.layout === 'string' ? req.body.layout : undefined
+    const isValidName = (name: string) => /^[a-z0-9_-]+$/i.test(name)
+
+    let layout: string | undefined
+    if (requestedLayout && isValidName(requestedLayout) && allowedLayouts.includes(requestedLayout)) {
+      layout = requestedLayout
     }
+
+    res.render('dataErasureResult', {
+      // Copier les champs non sensibles
+      email: req.body.email,
+      securityAnswer: req.body.securityAnswer,
+      // Appliquer éventuellement un layout valide, jamais un chemin
+      layout
+    })
   } catch (error) {
     next(error)
   }

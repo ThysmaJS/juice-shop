@@ -35,18 +35,24 @@ function handleZipFileUpload ({ file }: Request, res: Response, next: NextFuncti
         fs.write(fd, buffer, 0, buffer.length, null, function (err) {
           if (err != null) { next(err) }
           fs.close(fd, function () {
+            const baseDir = path.resolve('uploads/complaints')
             fs.createReadStream(tempFile)
               .pipe(unzipper.Parse())
               .on('entry', function (entry: any) {
-                const fileName = entry.path
-                const absolutePath = path.resolve('uploads/complaints/' + fileName)
-                challengeUtils.solveIf(challenges.fileWriteChallenge, () => { return absolutePath === path.resolve('ftp/legal.md') })
-                if (absolutePath.includes(path.resolve('.'))) {
-                  entry.pipe(fs.createWriteStream('uploads/complaints/' + fileName).on('error', function (err) { next(err) }))
+                const original = String(entry.path || '')
+                // Normaliser et retirer toute tentative de traversée de répertoires
+                const safeRelative = path.normalize(original).replace(/^([.]{2})(\\|\/|$)/g, '')
+                const destPath = path.resolve(baseDir, safeRelative)
+                // Autoriser uniquement les écritures dans baseDir
+                if (destPath.startsWith(baseDir)) {
+                  challengeUtils.solveIf(challenges.fileWriteChallenge, () => { return destPath === path.resolve('ftp/legal.md') })
+                  entry.pipe(fs.createWriteStream(destPath).on('error', function (err) { next(err) }))
                 } else {
+                  // Zip Slip détecté ➜ ignorer l’entrée
                   entry.autodrain()
                 }
-              }).on('error', function (err: unknown) { next(err) })
+              })
+              .on('error', function (err: unknown) { next(err) })
           })
         })
       })
